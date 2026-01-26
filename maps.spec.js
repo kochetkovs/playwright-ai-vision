@@ -13,8 +13,8 @@ test('Maps Visual Validation: Zimbabwe Cities', async ({ page }) => {
     // 1. Heading to the Google maps
     await page.goto('https://www.google.com/maps');
 
-    // 2. Acceping cookies policy
-    const acceptAll = page.locator('button:has-text("Accept all"), button:has-text("Aceitar tudo")').first();
+    // 2. Acceping cookies policy using selector
+    const acceptAll = page.locator('[jsaction="JIbuQc:ldDdv(b3VHJd)"] button').first();
     if (await acceptAll.count()) {
         await acceptAll.click();
         console.log('Cookies accepted.');
@@ -39,9 +39,9 @@ test('Maps Visual Validation: Zimbabwe Cities', async ({ page }) => {
         Perform a semantic check and return YES or NO for each question.
         
         Questions:
-        1. Is the city of "Harare" visible?
-        2. Is the city of "Bulawayo" visible?
-        3. Is the city of "New York" visible?
+        1. Is the city of Harare visible?
+        2. Is the city of Bulawayo visible?
+        3. Is the city of New York visible?
         
         Return JSON format: 
         {
