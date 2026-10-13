@@ -1,24 +1,44 @@
-# Playwright + Gemini Vision AI: Semantic WebGL Testing
+# Playwright + Gemini Vision: Semantic Visual Assertions
 
-This project demonstrates a cutting-edge approach to testing **"untestable"** web environments like WebGL, Canvas 3D, and dynamic maps using Playwright and Google Gemini Vision AI (Flash 2.5).
+An example of testing "untestable" UI, such as WebGL scenes, canvas and dynamic maps,
+with Playwright and Google Gemini vision. Instead of DOM selectors or pixel diffs,
+the test takes a screenshot and asks the model YES/NO questions about what is on screen.
 
-## 🚀 The Challenge
-Traditional QA automation relies on DOM selectors (IDs, Classes). However, complex 3D scenes (like Three.js games) or canvas-based maps (Google Maps) offer no internal locators. 
+## The idea
 
-## 💡 The Solution: Semantic Visual Validation
-Instead of pixel-matching, this framework uses **Generative AI** to "see" and analyze the screen like a human:
-**Semantic Assertions:** Validates geographical data on maps without accessing internal map APIs.
+Google Maps renders the map on a canvas, so there is no locator for "the Harare label".
+The test searches for Zimbabwe, waits for the map to settle, and asks Gemini:
 
-## 🛠️ Tech Stack
-- **Framework:** Playwright (Node.js)
-- **AI Brain:** Google Gemini 2.5 Flash API
-- **Language:** JavaScript
+1. Is the city of Harare visible?
+2. Is the city of Bulawayo visible?
+3. Is the city of New York visible? (a control question, must be NO)
 
-## 📈 Real-world Use Cases
-**Geographical Validation:** Verifying the presence of cities (Harare, Bulawayo) and absence of others (New York) on a dynamic map.
+The answers are enforced with a strict JSON schema (`YES`/`NO` enum), so the
+assertions are plain `expect(...).toBe('YES')`.
 
-## ⚙️  How to Run
-1. Clone the repo.
-2. Install dependencies: `npm install`.
-3. Set your API Key: `export GEMINI_API_KEY='your_key_here'`.
-4. Run tests: `npm test`.
+## Project layout
+
+- `maps.spec.js` — the test itself: navigation, waiting, questions, assertions.
+- `lib/vision.js` — small helper: screenshot, Gemini call with JSON schema, retries,
+  and attachments (`vision-input` and `vision-report`) in the Playwright report.
+- `playwright.config.js` — viewport, `en-US` locale, retries, trace and screenshot on failure.
+
+## How to run
+
+```bash
+npm install
+npx playwright install chromium
+cp .env.example .env   # put your GEMINI_API_KEY there (or export it in the shell)
+npm test               # headless
+npm run test:headed    # watch the browser
+npm run report         # open the HTML report with the screenshot the model saw
+```
+
+Get a key at https://aistudio.google.com/app/apikey.
+
+## Notes
+
+- Both the map and the model are non-deterministic, so the config has one retry locally
+  and two in CI. When a run fails, open the HTML report: the `vision-input` attachment is
+  the exact frame sent to the model, `vision-report` is its answer with reasoning.
+- The model is `gemini-2.5-flash`, called via the `@google/genai` SDK.
