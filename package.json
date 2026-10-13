@@ -1,10 +1,12 @@
 {
   "name": "playwright-ai-vision",
   "version": "1.0.0",
-  "description": "Semantic Visual Assertions using Playwright and Gemini Vision AI",
-  "main": "maps.spec.js",
+  "description": "Example of semantic visual assertions with Playwright and Gemini Vision",
+  "private": true,
   "scripts": {
-    "test": "npx playwright test maps.spec.js --headed"
+    "test": "playwright test",
+    "test:headed": "playwright test --headed",
+    "report": "playwright show-report"
   },
   "keywords": [
     "playwright",
@@ -15,7 +17,10 @@
   "author": "Sergey Kochetkov",
   "license": "ISC",
   "dependencies": {
-    "@google/generative-ai": "^0.24.1",
+    "@google/genai": "^1.29.0",
+    "dotenv": "^17.2.3"
+  },
+  "devDependencies": {
     "@playwright/test": "^1.57.0"
   }
 }

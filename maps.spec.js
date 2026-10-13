@@ -1,67 +1,43 @@
 const { test, expect } = require('@playwright/test');
-const { GoogleGenerativeAI } = require('@google/generative-ai');
+const { askVision } = require('./lib/vision');
 
-test.setTimeout(60000);
+test('Maps Visual Validation: Zimbabwe Cities', async ({ page }, testInfo) => {
+  // 1. Open Google Maps with forced English UI.
+  await page.goto('https://www.google.com/maps?hl=en');
 
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-const model = genAI.getGenerativeModel({ 
-    model: "gemini-2.5-flash", 
-    generationConfig: { responseMimeType: "application/json" }
-});
+  // 2. Accept the cookie consent if it shows up (EU geo only).
+  const acceptAll = page.getByRole('button', { name: /accept all/i }).first();
+  const consentShown = await acceptAll
+    .waitFor({ state: 'visible', timeout: 5_000 })
+    .then(() => true, () => false);
+  if (consentShown) {
+    await acceptAll.click();
+    console.log('Cookies accepted.');
+  }
 
-test('Maps Visual Validation: Zimbabwe Cities', async ({ page }) => {
-    // 1. Heading to the Google maps
-    await page.goto('https://www.google.com/maps');
+  // 3. Search for Zimbabwe.
+  const searchBox = page.getByRole('combobox').first();
+  await searchBox.fill('Zimbabwe');
+  await searchBox.press('Enter');
 
-    // 2. Acceping cookies policy using selector
-    const acceptAll = page.locator('[jsaction="JIbuQc:ldDdv(b3VHJd)"] button').first();
-    if (await acceptAll.count()) {
-        await acceptAll.click();
-        console.log('Cookies accepted.');
-    }
+  // 4. Wait for the map to fly to the country: URL gets the place path and coordinates,
+  //    then the place card renders. Let the tiles settle instead of a fixed sleep.
+  await page.waitForURL(/\/maps\/place\/Zimbabwe\/@-?\d+\.\d+,-?\d+\.\d+/);
+  await expect(page.getByRole('heading', { name: 'Zimbabwe' }).first()).toBeVisible();
+  await page.waitForLoadState('networkidle', { timeout: 15_000 }).catch(() => {
+    // Maps keeps a few background requests alive; the tiles are already rendered by now.
+  });
 
-    // 3. Searching for Zimbabwe using selector
-    const searchBox = page.locator('[name="q"]');
-    await searchBox.waitFor({ state: 'visible' });
-    await searchBox.fill('Zimbabwe');
-    await page.keyboard.press('Enter');
-    
-    // Wait for the cities to zoom and render
-    await page.waitForTimeout(7000);
+  // 5. Semantic visual check.
+  const report = await askVision(page, testInfo, {
+    harare_present: 'Is the city of Harare visible?',
+    bulawayo_present: 'Is the city of Bulawayo visible?',
+    ny_present: 'Is the city of New York visible?',
+  });
+  console.log('Visual Analysis Results:', report);
 
-    // 4. Screenshot
-    const screenshot = await page.screenshot({ type: 'jpeg', quality: 80 });
-    const base64Screenshot = screenshot.toString('base64');
-
-    // 5. Visual AI analysis
-    const prompt = `
-        Analyze this screenshot of a map. 
-        Perform a semantic check and return YES or NO for each question.
-        
-        Questions:
-        1. Is the city of Harare visible?
-        2. Is the city of Bulawayo visible?
-        3. Is the city of New York visible?
-        
-        Return JSON format: 
-        {
-          "harare_present": "YES/NO",
-          "bulawayo_present": "YES/NO",
-          "ny_present": "YES/NO",
-          "reasoning": "briefly describe what you see"
-        }
-    `;
-
-    const result = await model.generateContent([
-        prompt,
-        { inlineData: { data: base64Screenshot, mimeType: 'image/jpeg' } }
-    ]);
-
-    const report = JSON.parse(result.response.text());
-    console.log('Visual Analysis Results:', report);
-
-    // 6. Business-asserts
-    expect(report.harare_present).toBe('YES');
-    expect(report.bulawayo_present).toBe('YES');
-    expect(report.ny_present).toBe('NO');
+  // 6. Business assertions. New York is a control question: it must never be on this map.
+  expect(report.harare_present).toBe('YES');
+  expect(report.bulawayo_present).toBe('YES');
+  expect(report.ny_present).toBe('NO');
 });
